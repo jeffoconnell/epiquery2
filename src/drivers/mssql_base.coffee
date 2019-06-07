@@ -54,6 +54,16 @@ for propertyName in Object.getOwnPropertyNames(tedious.TYPES)
           providedValue = null
         else
           new Date(providedValue)
+    # as a convenience, we'll allow you to pass an array in to a varchar or nvarchar param
+    # when this happens we'll convert the array to a string
+    else if key is 'varchar' or key is 'nvarchar'
+      transformValue = (providedValue) ->
+        if _.isArray(providedValue)
+          # return the string version of provided array
+          providedValue.toString()
+        else
+          # it wasn't an array, so we just go with the historical behavior
+          providedValue
     value.transformValue = transformValue
 
 class MSSQLDriver extends events.EventEmitter
@@ -160,14 +170,21 @@ class MSSQLDriver extends events.EventEmitter
           tediousType = lowerCaseTediousTypeMap[lowerCaseTypeName]
           throw new TypeError("Unknown parameter type (#{param.type}) for #{param.varName}") if not tediousType
           transformedValue = tediousType.transformValue(param.value)
-          log.debug "adding parameter #{param.varName}, value (#{param.value}) as type #{tediousType.name} with lowerCaseTypeName #{lowerCaseTypeName}, transformed value: #{transformedValue}"
+          log.debug "adding parameter #{param.varName}, length (#{transformedValue?.length}), value (#{param.value}) as type #{tediousType.name} with lowerCaseTypeName #{lowerCaseTypeName}, transformed value: #{transformedValue}"
           paramOptions = {}
           # we entered into this with the ability to not specify length, precision or scale in our
           # param declarations, so we're gonna start by fixing nvarchar and varchar lengths if they're
           # under a threshold, then we'll come back and add first class support for length
           if lowerCaseTypeName is 'varchar' or lowerCaseTypeName is 'nvarchar'
+            # if we have a value, we want to set the param length to 255 UNLESS it's greater 
+            # so we don't truncate anything
             if transformedValue
               paramOptions.length = 255 unless transformedValue.length > 255
+            else
+              # so here we have no value, thus our parameter value is null, so we'll just fix all our varchar
+              # lengthst to 255 UNLESS they are values (not null) greater than 255 which is handled above
+              paramOptions.length = 255
+              
           request.addParameter(param.varName, tediousType, transformedValue, paramOptions)
         @conn.execSql request
       catch e
