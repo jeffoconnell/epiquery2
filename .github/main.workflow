@@ -11,7 +11,10 @@ action "only on interconnect-testing" {
 action "Docker Login" {
   needs = "only on interconnect-testing"
   uses = "actions/docker/login@master"
-  secrets = ["DOCKER_USERNAME", "DOCKER_PASSWORD", "DOCKER_REGISTRY_URL"]
+  secrets = ["DOCKER_USERNAME", "DOCKER_PASSWORD"]
+  env = {
+    DOCKER_REGISTRY_URL = "interconnectregistry.azurecr.io"
+  }
 }
 
 action "build" {
