@@ -20,11 +20,11 @@ action "Docker Login" {
 action "build" {
   needs = "Docker Login"
   uses = "actions/docker/cli@master"
-  args = "build -t glg/epiquery2:latest ."
+  args = "build -t interconnectregistry.azurecr.io/epiquery2:latest ."
 }
 
 action "push" {
   needs = "build"
   uses = "actions/docker/cli@master"
-  args = "push glg/epiquery2:latest"
+  args = "push interconnectregistry.azurecr.io/epiquery2:latest"
 }
