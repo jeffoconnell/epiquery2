@@ -44,6 +44,14 @@ if config.isDevelopmentMode()
   app.options '*', (req, res) ->
     res.status(200).send()
 
+app.get '/', (req, res) ->
+  response =
+    message: "ok"
+    connections: _.pluck(config.connections, 'name')
+  if config.isDevelopmentMode()
+    response.aclsEnabled = config.enableTemplateAcls
+  res.send response
+
 app.get '/diagnostic', (req, res) ->
   response =
     message: "ok"
