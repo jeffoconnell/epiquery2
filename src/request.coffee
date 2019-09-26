@@ -11,7 +11,9 @@ templates   = require './templates.coffee'
 transformer = require './transformer.coffee'
 https       = require 'https'
 url         = require 'url'
-
+EventGridClient = require "azure-eventgrid"
+msRestAzure     = require 'ms-rest-azure'
+uuid            = require 'uuid'.v4
 breaker     = require 'circuit-breaker'
 breaker_config = {
     window: 300,  # length of window in seconds
@@ -39,6 +41,37 @@ special_characters = {
   "174": regex: new RegExp(String.fromCharCode(174), "gi"), "replace": "(R)"
   "8230": regex: new RegExp(String.fromCharCode(8230), "gi"), "replace": "..."
 }
+
+publishEvent = (context) ->
+  if config.isPublishEnabled()
+    # compose the json for the event  
+      event = [
+        {
+          id: uuid(),
+          template: context.templateName,
+          connection: contect.connectionName,
+          queryId: context.queryId
+          dataVersion: '1.0',
+          eventType: 'GLG.Epiquery.Post',
+          params: context.templateContext
+        }
+      ]
+    # open the connection
+    topicCreds = new msRestAzure.TopicCredentials config.eventTopicKey
+    EGClient = new EventGridClient topicCreds, config.eventSubscriptionId
+    topicHostName = config.eventTopicEndpoint
+
+    # publish
+
+    try
+      EGClient.publishEvents(topicHostName, events).then((result) => 
+        return Promise.resolve
+          log.info 'Published events successfully.'
+      )
+    catch(err) => 
+        log.Error err, 'An error ocurred while publishing event'
+    
+
 
 setupContext = (context, callback) ->
   # making a place to store our stats about our request
@@ -236,7 +269,8 @@ queryRequestHandler = (context) ->
     testExecutionPermissions,
     logToScreamer,
     executeQuery,
-    collectStats
+    collectStats,
+    publishEvent
   ],
   (err, results) ->
     if err

@@ -43,6 +43,12 @@ if process.env.ALLOWED_TEMPLATE_PATHS
 else
   allowedTemplates = null
 
+## Azure Event Grid Config Variables
+EVENTS_ENABLE_PUBLISH = process.env.EVENTS_ENABLE_PUBLISH || false
+EVENTS_TOPIC_KEY = process.env.EVENTS_TOPIC_KEY
+EVENTS_SUBSCRIPTION_ID = process.env.EVENTS_SUBSCRIPTION_ID
+EVENTS_TOPIC_ENDPOINT = process.env.EVENTS_TOPIC_ENDPOINT
+
 config =
   port: PORT
   templateDirectory: TEMPLATE_DIRECTORY
@@ -59,5 +65,9 @@ config =
   httpRequestTimeoutInSeconds: HTTP_REQUEST_TIMEOUT_IN_SECONDS
   enableTemplateAcls: ENABLE_TEMPLATE_ACLS
   epiScreamerUrl: process.env.EPI_SCREAMER_URL
+  isPublishEnabled: () -> EVENTS_ENABLE_PUBLISH isnt true
+  eventTopicKey: EVENTS_TOPIC_KEY
+  eventSubscriptionId: EVENTS_SUBSCRIPTION_ID
+  eventTopicEndpoint: EVENTS_TOPIC_ENDPOINT
 
 module.exports = config
