@@ -47,7 +47,7 @@ publishEvent = (context) ->
     # compose the json for the event  
       event = [
         {
-          id: uuid(),
+          id: uuid().toString(),
           template: context.templateName,
           connection: contect.connectionName,
           queryId: context.queryId
@@ -64,12 +64,12 @@ publishEvent = (context) ->
     # publish
 
     try
-      EGClient.publishEvents(topicHostName, events).then((result) => 
+      return EGClient.publishEvents(topicHostName, events).then( (result) => 
         return Promise.resolve
-          log.info 'Published events successfully.'
+        log.info 'Published events successfully.'
       )
-    catch(err) => 
-        log.Error err, 'An error ocurred while publishing event'
+    catch e
+        log.Error e
     
 
 
