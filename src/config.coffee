@@ -44,7 +44,8 @@ else
   allowedTemplates = null
 
 ## Azure Event Grid Config Variables
-EVENTS_ENABLE_PUBLISH = process.env.EVENTS_ENABLE_PUBLISH || false
+if process.env.EVENTS_ENABLE_PUBLISH
+  EVENTS_ENABLE_PUBLISH = (process.env.EVENTS_ENABLE_PUBLISH.toLowerCase() == 'true')
 EVENTS_TOPIC_KEY = process.env.EVENTS_TOPIC_KEY || ''
 EVENTS_SUBSCRIPTION_ID = process.env.EVENTS_SUBSCRIPTION_ID || ''
 EVENTS_TOPIC_ENDPOINT = process.env.EVENTS_TOPIC_ENDPOINT || ''
@@ -65,7 +66,7 @@ config =
   httpRequestTimeoutInSeconds: HTTP_REQUEST_TIMEOUT_IN_SECONDS
   enableTemplateAcls: ENABLE_TEMPLATE_ACLS
   epiScreamerUrl: process.env.EPI_SCREAMER_URL
-  isPublishEnabled: () -> EVENTS_ENABLE_PUBLISH isnt true
+  isPublishEnabled: () -> EVENTS_ENABLE_PUBLISH == true
   eventTopicKey: EVENTS_TOPIC_KEY
   eventSubscriptionId: EVENTS_SUBSCRIPTION_ID
   eventTopicEndpoint: EVENTS_TOPIC_ENDPOINT

@@ -74,7 +74,7 @@ app.get '/stats', (req, res) ->
 httpRequestHandler = (req, res) ->
   clientId = req.param 'client_id'
   c = new Context()
-  newrelic.setTransactionName(req.path.replace(/^\/+/g, ''))
+  newrelic.setTransactionName(req.path.replace(/^\/+/g, '')) if !config.isDevelopmentMode()
   c.queryId = req.param 'queryId'
   _.extend c, httpClient.getQueryRequestInfo(req, !!apiKey)
   # Check that the client supplied key matches server key
@@ -82,12 +82,12 @@ httpRequestHandler = (req, res) ->
     if !(c.clientKey == apiKey)
       log.error "Unauthorized HTTP Access Attempted from IP: #{req.connection.remoteAddress}"
       log.error "Unauthorized Context: #{JSON.stringify(c.templateContext)}"
-      newrelic.noticeError(new Error("Unauthorized Socket Access Attempted"), c)
+      newrelic.noticeError(new Error("Unauthorized Socket Access Attempted"), c) if !config.isDevelopmentMode()
       res.send error: "Unauthorized Access"
       return
 
   if c.connectionName and not config.connections[c.connectionName]
-    newrelic.noticeError(new Error("Unable to find connection by name"), c)
+    newrelic.noticeError(new Error("Unable to find connection by name"), c) if !config.isDevelopmentMode()
     res.send error: "unable to find connection by name '#{c.connectionName}'"
     return
   httpClient.attachResponder c, res
@@ -96,13 +96,13 @@ httpRequestHandler = (req, res) ->
 
 socketServer.on 'connection', (conn) ->
   conn.on 'data', (message) ->
-    newrelic.startWebTransaction(message.templateName)
+    newrelic.startWebTransaction(message.templateName) if !config.isDevelopmentMode()
     if apiKey
       if !~ conn.url.indexOf apiKey
         conn.close() 
         log.error "Unauthorized Socket Access Attempted from IP: #{conn.remoteAddress}"
         log.error "Unauthorized Context: #{JSON.stringify(message)}"
-        newrelic.noticeError(new Error("Unauthorized Socket Access Attempted"), message)
+        newrelic.noticeError(new Error("Unauthorized Socket Access Attempted"), message) if !config.isDevelopmentMode()
         return
 
     log.debug "inbound message #{message}"
@@ -119,20 +119,21 @@ socketServer.on 'connection', (conn) ->
       requestHeaders: conn.headers
     ctxParms.debug if message.debug
     context = new Context(ctxParms)
-    newrelic.setTransactionName(context.templateName.replace(/^\/+/g, ''))
-    newrelic.addCustomAttributes(context)
+    if !config.isDevelopmentMode()
+      newrelic.setTransactionName(context.templateName.replace(/^\/+/g, '')) 
+      newrelic.addCustomAttributes(context)
     log.debug "[q:#{context.queryId}] starting processing"
     sockjsClient.attachResponder(context, conn)
     queryRequestHandler(context)
   conn.on 'error', (e) ->
     log.error "error on connection", e
-    newrelic.noticeError(e)
+    newrelic.noticeError(e) if !config.isDevelopmentMode()
   conn.on 'close', () ->
     log.debug "sockjs client disconnected"
 
 socketServer.on 'error', (e) ->
   log.error "error on socketServer", e
-  newrelic.noticeError(e)
+  newrelic.noticeError(e) if !config.isDevelopmentMode()
 
 app.get /\/(.+)$/, httpRequestHandler
 app.post /\/(.+)$/, httpRequestHandler

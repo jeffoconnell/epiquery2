@@ -13,7 +13,7 @@ https       = require 'https'
 url         = require 'url'
 EventGridClient = require "azure-eventgrid"
 msRestAzure     = require 'ms-rest-azure'
-uuid            = require 'uuid'.v4
+uuid            = require 'uuid/v4'
 breaker     = require 'circuit-breaker'
 breaker_config = {
     window: 300,  # length of window in seconds
@@ -42,37 +42,6 @@ special_characters = {
   "8230": regex: new RegExp(String.fromCharCode(8230), "gi"), "replace": "..."
 }
 
-publishEvent = (context) ->
-  if config.isPublishEnabled()
-    # compose the json for the event  
-      event = [
-        {
-          id: uuid().toString(),
-          template: context.templateName,
-          connection: contect.connectionName,
-          queryId: context.queryId
-          dataVersion: '1.0',
-          eventType: 'GLG.Epiquery.Post',
-          params: context.templateContext
-        }
-      ]
-    # open the connection
-    topicCreds = new msRestAzure.TopicCredentials config.eventTopicKey
-    EGClient = new EventGridClient topicCreds, config.eventSubscriptionId
-    topicHostName = config.eventTopicEndpoint
-
-    # publish
-
-    try
-      return EGClient.publishEvents(topicHostName, events).then( (result) => 
-        return Promise.resolve
-        log.info 'Published events successfully.'
-      )
-    catch e
-        log.Error e
-    
-
-
 setupContext = (context, callback) ->
   # making a place to store our stats about our request
   context.Stats = {}
@@ -92,7 +61,8 @@ initializeRequest = (context, callback) ->
   callback null, context
 
 logTemplateContext = (context, callback) ->
-  log.debugRequest context.debug, "[q:#{context.queryId}] template context: #{JSON.stringify context.templateContext}"
+  log.debugRequest context.debug, 
+    "[q:#{context.queryId}] template context: #{JSON.stringify context.templateContext}"
   callback null, context
 
 selectConnection = (context, callback) ->
@@ -105,25 +75,29 @@ selectConnection = (context, callback) ->
     if not context.connection
       msg = "unable to find connection '#{context.connectionName}'"
       context.emit 'error', msg
-      newrelic.noticeError(new Error(msg), context)
+      newrelic.noticeError(new Error(msg), context) if !config.isDevelopmentMode()
       return callback msg
   else
     context.connection = connectionConfig
   context.driver = core.selectDriver context.connection
 
   # Replica check here...
-  log.debugRequest context.debug, "[q:#{context.queryId}] context.connection.name", context.connection.name
+  log.debugRequest context.debug, "[q:#{context.queryId}] context.connection.name", 
+    context.connection.name
   if context.connection.replica_of or context.connection.replica_master
     log.debugRequest context.debug, "[q:#{context.queryId}] query is using replica setup"
     if context.rawTemplate.match(/(^|\W)(update|insert|exec|delete)\W/i)
-      log.debugRequest context.debug, "[q:#{context.queryId}] Unable to implicitly determine query is replica safe", context.rawTemplate
+      log.debugRequest context.debug, 
+        "[q:#{context.queryId}] Unable to implicitly determine query is replica safe", 
+        context.rawTemplate
       if context.rawTemplate.indexOf('replicasafe') != -1
         log.debugRequest context.debug, "query to replica flagged as replicasafe"
       else
         if context.connection.replica_master
           context.emit 'replicamasterwrite', context.queryId
         else
-          log.debugRequest context.debug, "[q:#{context.queryId}] query to replica is a write. switching host"
+          log.debugRequest context.debug, 
+            "[q:#{context.queryId}] query to replica is a write. switching host"
           log.debugRequest context.debug 'hostswitch template:', context.templatePath
           return callback 'replicawrite', context
 
@@ -131,12 +105,14 @@ selectConnection = (context, callback) ->
   callback null, context
 
 getTemplatePath = (context, callback) ->
-  log.debugRequest context.debug, "[q:#{context.queryId}] getting template path for #{context.templateName}"
+  log.debugRequest context.debug, 
+    "[q:#{context.queryId}] getting template path for #{context.templateName}"
   # first we make sure that, if we are whitelisting templates, that
   # our requested template is in a whitelisted directory
   if config.allowedTemplates isnt null
     templateDir = path.dirname context.templateName
-    log.debugRequest context.debug, "validating template dir %s against allowed templates", templateDir
+    log.debugRequest context.debug, 
+      "validating template dir %s against allowed templates", templateDir
     if not config.allowedTemplates[templateDir]
       return callback new Error("Template access denied: " + context.templateName), context
   # if we've arrived here then we've either got no whitelist, or we're running
@@ -211,7 +187,7 @@ executeQuery = (context, callback) ->
     context.Stats.endDate = new Date()
     if err
       log.error "[q:#{context.queryId}, t:#{context.templateName}] error executing query #{err}"
-      newrelic.noticeError(err, context)
+      newrelic.noticeError(err, context) if !config.isDevelopmentMode()
       context.emit 'error', err, data
 
     context.emit 'endquery', data
@@ -255,6 +231,60 @@ sanitizeInput = (context, callback) ->
     context.driver.class.prototype.escapeTemplateContext(context.templateContext)
   callback null, context
 
+
+publishEvent = (context, callback) ->
+  # compose the json for the event
+  # clone the template context, and remove extra crap 
+  ctx = JSON.parse(JSON.stringify(context.templateContext))
+  delete ctx['connection']
+  delete ctx['host']
+  delete ctx['cache-control']
+  delete ctx['sec-fetch-mode']
+  delete ctx['sec-fetch-user']
+  delete ctx['sec-fetch-site']
+  delete ctx['cookie']
+  delete ctx['upgrade-insecure-requests']
+  delete ctx['user-agent']
+  delete ctx['cookie']
+  delete ctx['accept']
+  delete ctx['accept-encoding']
+  delete ctx['accept-language']
+
+  #Extract the template name and directory path to construct event type string
+  offset = context.templateName.lastIndexOf('/')
+  theName = context.templateName.substr(offset + 1, context.templateName.length)
+  thePrefix = ''
+  thePrefix = ".#{context.templateName.substr(0, offset)}".replace('/', '.') if offset > 0
+
+  event = [
+    {
+      id: uuid().toString(),
+      template: theName,
+      dataVersion: '1.0',
+      eventType: 'glg.epiquery.post' + thePrefix,
+      params: ctx
+    }
+  ]
+  if config.isPublishEnabled()
+    # create the connection
+    topicCreds = new msRestAzure.TopicCredentials config.eventTopicKey
+    EGClient = new EventGridClient topicCreds, config.eventSubscriptionId
+    topicHostName = config.eventTopicEndpoint
+
+    # publish
+
+    try
+      return EGClient.publishEvents(topicHostName, event).then( (result) => 
+        return Promise.resolve
+        log.info 'Published events successfully.'
+      )
+    catch e
+        log.Error e
+  else
+    #If in development mode, and publish is disabled, emit to the console instead
+    if config.isDevelopmentMode()
+      console.log JSON.stringify(event)
+
 queryRequestHandler = (context) ->
   async.waterfall [
     # just to create our context
@@ -275,7 +305,7 @@ queryRequestHandler = (context) ->
   (err, results) ->
     if err
       log.error "[q:#{context.queryId}, t:#{context.templateName}] queryRequestHandler Error: #{err}"
-      newrelic.noticeError(err, context)
+      newrelic.noticeError(err, context) if !config.isDevelopmentMode()
       context.emit 'error', err
     context.emit 'completequeryexecution'
 
