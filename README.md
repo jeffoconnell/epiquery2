@@ -374,3 +374,24 @@ very concise and simple, it should support a robust handling of that functionali
   comes through as a 'row' event.
 * msmdx - allows for MDX querying of a Microsoft Analysis Server interface
 * render - simply renders the template requested and returns the result
+
+
+
+##### Running locally - recommended env vars
+export PORT=8080
+export NODE_ENV=development
+export SERVICE_NAME=epiquery
+export ENABLE_TEMPLATE_ACLS=DISABLED
+export NEW_RELIC_NO_CONFIG_FILE=true
+export NEW_RELIC_ENABLED=false
+export EVENTS_ENABLE_PUBLISH=false
+
+##### Azure Event Hub integration - env vars
+
+Get the connection string from Azure for the hub, rip out the important parts.
+
+export EVENTS_ENABLE_PUBLISH=true
+export EVENTS_HUB_NAME='[hub name]'
+export EVENTS_ADDRESS='sb://[hub name space]/'
+export EVENTS_KEYNAME='[auth key name]'
+export EVENTS_KEY='[auth key]'
