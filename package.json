@@ -10,9 +10,9 @@
     "ws": "~0.4.31"
   },
   "dependencies": {
+    "@azure/event-hubs": "2.1.1",
     "async": "0.2.9",
     "awesome-websocket": "0.0.25",
-    "azure-eventgrid": "1.6.0",
     "browserify": "6.2.0",
     "circuit-breaker": "glg/circuit-breaker.git#v1.0.1",
     "cluster2": "igroff/cluster2.git",

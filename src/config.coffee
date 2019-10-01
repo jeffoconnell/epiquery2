@@ -46,9 +46,13 @@ else
 ## Azure Event Grid Config Variables
 if process.env.EVENTS_ENABLE_PUBLISH
   EVENTS_ENABLE_PUBLISH = (process.env.EVENTS_ENABLE_PUBLISH.toLowerCase() == 'true')
-EVENTS_TOPIC_KEY = process.env.EVENTS_TOPIC_KEY || ''
-EVENTS_SUBSCRIPTION_ID = process.env.EVENTS_SUBSCRIPTION_ID || ''
-EVENTS_TOPIC_ENDPOINT = process.env.EVENTS_TOPIC_ENDPOINT || ''
+#connectionString = ;
+EVENTS_ADDRESS = process.env.EVENTS_ADDRESS|| ''
+EVENTS_KEYNAME = process.env.EVENTS_KEYNAME || ''
+EVENTS_KEY = process.env.EVENTS_KEY || ''
+EVENTS_HUB_NAME = process.env.EVENTS_HUB_NAME || ''
+EVENTS_CONNSTR = "Endpoint=#{EVENTS_ADDRESS};SharedAccessKeyName=#{EVENTS_KEYNAME};" +
+                  "SharedAccessKey=#{EVENTS_KEY};EntityPath=#{EVENTS_HUB_NAME}"
 
 config =
   port: PORT
@@ -67,8 +71,7 @@ config =
   enableTemplateAcls: ENABLE_TEMPLATE_ACLS
   epiScreamerUrl: process.env.EPI_SCREAMER_URL
   isPublishEnabled: () -> EVENTS_ENABLE_PUBLISH == true
-  eventTopicKey: EVENTS_TOPIC_KEY
-  eventSubscriptionId: EVENTS_SUBSCRIPTION_ID
-  eventTopicEndpoint: EVENTS_TOPIC_ENDPOINT
+  eventHubName: EVENTS_HUB_NAME
+  eventHubConnString: EVENTS_CONNSTR
 
 module.exports = config

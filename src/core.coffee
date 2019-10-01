@@ -7,6 +7,7 @@ events  = require 'events'
 buffer  = require './util/buffer.coffee'
 templates = require './templates.coffee'
 transformer = require './transformer.coffee'
+eventPub    = require './util/events.coffee'
 
 DRIVERS={}
 QUERY_EXEC_TIME_STATS={}
@@ -29,6 +30,12 @@ loadDrivers = (driverPath) ->
     else
       log.error "Unable to find execute in module #{file}"
 
+initAzureConnection = () ->
+  if config.isPublishEnabled
+    #this is strictly to poke the connection and throw an error at startup
+    log.info "Azure Connection: #{config.eventHubName}"
+    pub = new eventPub.EventPublisher
+
 selectDriver = (connectionConfig) ->
   DRIVERS[connectionConfig.driver]
 
@@ -39,6 +46,7 @@ init = () ->
   config.driverDirectory and loadDrivers(config.driverDirectory)
   templates.init()
   transformer.init()
+  initAzureConnection()
 
 trackExecutionTime = (templateName, executionTime) ->
   if QUERY_EXEC_TIME_STATS[templateName] == undefined

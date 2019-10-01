@@ -2,6 +2,7 @@
 newrelic    = require 'newrelic'
 async       = require 'async'
 log         = require './util/log.coffee'
+eventPub    = require './util/events.coffee'
 _           = require 'lodash-contrib'
 path        = require 'path'
 core        = require './core.coffee'
@@ -11,9 +12,7 @@ templates   = require './templates.coffee'
 transformer = require './transformer.coffee'
 https       = require 'https'
 url         = require 'url'
-EventGridClient = require "azure-eventgrid"
-msRestAzure     = require 'ms-rest-azure'
-uuid            = require 'uuid/v4'
+uuid        = require 'uuid/v4'
 breaker     = require 'circuit-breaker'
 breaker_config = {
     window: 300,  # length of window in seconds
@@ -234,7 +233,7 @@ sanitizeInput = (context, callback) ->
 
 publishEvent = (context, callback) ->
   # compose the json for the event
-  # clone the template context, and remove extra crap 
+  # clone the template context, and remove extra crap. small message please.
   ctx = JSON.parse(JSON.stringify(context.templateContext))
   delete ctx['connection']
   delete ctx['host']
@@ -245,7 +244,6 @@ publishEvent = (context, callback) ->
   delete ctx['cookie']
   delete ctx['upgrade-insecure-requests']
   delete ctx['user-agent']
-  delete ctx['cookie']
   delete ctx['accept']
   delete ctx['accept-encoding']
   delete ctx['accept-language']
@@ -260,30 +258,20 @@ publishEvent = (context, callback) ->
     {
       id: uuid().toString(),
       template: theName,
-      dataVersion: '1.0',
       eventType: 'glg.epiquery.post' + thePrefix,
+      dataVersion: '1.0',
       params: ctx
     }
   ]
   if config.isPublishEnabled()
-    # create the connection
-    topicCreds = new msRestAzure.TopicCredentials config.eventTopicKey
-    EGClient = new EventGridClient topicCreds, config.eventSubscriptionId
-    topicHostName = config.eventTopicEndpoint
+    pub = new eventPub.EventPublisher
+    pub.publish(event)
 
-    # publish
-
-    try
-      return EGClient.publishEvents(topicHostName, event).then( (result) => 
-        return Promise.resolve
-        log.info 'Published events successfully.'
-      )
-    catch e
-        log.Error e
   else
     #If in development mode, and publish is disabled, emit to the console instead
     if config.isDevelopmentMode()
       console.log JSON.stringify(event)
+  callback null, context
 
 queryRequestHandler = (context) ->
   async.waterfall [
